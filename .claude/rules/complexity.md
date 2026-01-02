@@ -1,0 +1,2 @@
+- Keep the cyclomatic complexity of each function below 6. 
+    - If you have a large switch case, consider strategy pattern/dispatch table
