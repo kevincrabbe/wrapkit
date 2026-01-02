@@ -33,6 +33,8 @@
 
 ## Test Coverage
 
+### Unit Tests
+
 | File | Tests | Status |
 |------|-------|--------|
 | wrap.test.ts | 15 | ✅ |
@@ -41,6 +43,23 @@
 | rate-limit.test.ts | 8 | ✅ |
 | queue.test.ts | 9 | ✅ |
 | **Total** | **53** | ✅ |
+
+### Integration Tests
+
+| # | SDK | Priority | Status | Notes |
+|---|-----|----------|--------|-------|
+| 1 | OpenAI | P1 | Done | Type preservation tests (6 tests) |
+| 2 | Stripe | P1 | Done | Type preservation tests (6 tests) |
+| 3 | Twilio | P1 | Done | Type preservation tests (6 tests) |
+| 4 | Airtable | P2 | Pending | Test with bases, tables, records |
+| 5 | Resend | P2 | Pending | Test with emails, domains |
+
+Integration test scenarios:
+- ✅ Type preservation (autocomplete works after wrapping)
+- Hook execution on real API calls
+- Rate limiting with actual API rate limits
+- Error handling and retry with real errors
+- Queue priority with concurrent requests
 
 ## Priority Legend
 

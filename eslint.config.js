@@ -14,7 +14,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/**/*.test.ts'],
+    files: ['src/**/*.test.ts', 'src/**/*.test-d.ts'],
     rules: {
       // Relax rules for test files
       '@typescript-eslint/no-unsafe-assignment': 'off',
@@ -23,13 +23,17 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-deprecated': 'off',
       'max-lines-per-function': 'off',
       'max-statements': 'off',
+      'max-lines': 'off',
     },
   },
   {
     files: ['src/**/*.ts'],
-    ignores: ['src/**/*.test.ts'],
+    ignores: ['src/**/*.test.ts', 'src/**/*.test-d.ts'],
     rules: {
       'max-nested-callbacks': ['error', 3],
       'max-lines': [
