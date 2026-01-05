@@ -1,5 +1,33 @@
 # Wrapkit Development Todo
 
+## Project Structure
+
+```
+wrapkit/
+├── src/
+│   ├── index.ts              # Main exports
+│   ├── wrap.ts               # Core wrap() function
+│   ├── types.ts              # TypeScript types
+│   ├── plugin.ts             # Plugin system
+│   ├── glob.ts               # Glob pattern matching
+│   ├── rate-limiter.ts       # Rate limiting implementation
+│   ├── queue.ts              # Queue system
+│   ├── wrap.test.ts          # Core wrap tests
+│   ├── hooks.test.ts         # Hook system tests
+│   ├── access-control.test.ts # Allowlist/blocklist tests
+│   ├── rate-limit.test.ts    # Rate limiting tests
+│   ├── queue.test.ts         # Queue tests
+│   ├── openai.integration.test.ts  # OpenAI live API tests
+│   └── integration/          # Type preservation tests
+│       ├── openai.test-d.ts
+│       ├── stripe.test-d.ts
+│       └── twilio.test-d.ts
+├── package.json
+├── tsconfig.json
+├── eslint.config.js
+└── vitest.config.ts
+```
+
 ## DX Decisions
 
 | # | Task | Priority | Status | Notes |
@@ -42,24 +70,38 @@
 | access-control.test.ts | 13 | ✅ |
 | rate-limit.test.ts | 8 | ✅ |
 | queue.test.ts | 9 | ✅ |
-| **Total** | **53** | ✅ |
+| **Subtotal** | **53** | ✅ |
 
 ### Integration Tests
 
-| # | SDK | Priority | Status | Notes |
-|---|-----|----------|--------|-------|
-| 1 | OpenAI | P1 | Done | Type preservation tests (6 tests) |
-| 2 | Stripe | P1 | Done | Type preservation tests (6 tests) |
-| 3 | Twilio | P1 | Done | Type preservation tests (6 tests) |
-| 4 | Airtable | P2 | Pending | Test with bases, tables, records |
-| 5 | Resend | P2 | Pending | Test with emails, domains |
+| File | Tests | Status |
+|------|-------|--------|
+| openai.integration.test.ts | 3 | ✅ |
+| **Subtotal** | **3** | ✅ |
+
+### Type Tests (.test-d.ts)
+
+| File | Status | Notes |
+|------|--------|-------|
+| integration/openai.test-d.ts | ✅ | Type preservation verification |
+| integration/stripe.test-d.ts | ✅ | Type preservation verification |
+| integration/twilio.test-d.ts | ✅ | Type preservation verification |
+
+### Total: 56 runtime tests
 
 Integration test scenarios:
 - ✅ Type preservation (autocomplete works after wrapping)
-- Hook execution on real API calls
+- ✅ Hook execution on real API calls (OpenAI)
 - Rate limiting with actual API rate limits
 - Error handling and retry with real errors
 - Queue priority with concurrent requests
+
+### Pending Integration Tests
+
+| # | SDK | Priority | Status | Notes |
+|---|-----|----------|--------|-------|
+| 1 | Airtable | P2 | Pending | Test with bases, tables, records |
+| 2 | Resend | P2 | Pending | Test with emails, domains |
 
 ## Priority Legend
 
