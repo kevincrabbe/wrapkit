@@ -24,6 +24,11 @@ wrapkit/
 │       ├── openai.test-d.ts
 │       ├── stripe.test-d.ts
 │       └── twilio.test-d.ts
+├── docs/
+│   ├── README.md             # Overview and quick start
+│   ├── configuration.md      # Configuration options
+│   ├── plugins.md            # Plugin system guide
+│   └── api.md                # API reference
 ├── package.json
 ├── tsconfig.json
 ├── eslint.config.js
@@ -59,7 +64,7 @@ wrapkit/
 | 10 | Plugin system `.use()` | P2 | Done | Fluent builder, onion model (13 tests) |
 | 11 | Per-call timeout & skipQueue | P2 | Done | Integrated into `.withOptions()` |
 | 12 | Export public API from index.ts | P2 | Done | All types + functions exported |
-| 13 | Documentation site | P3 | Pending | Docusaurus or similar |
+| 13 | Documentation | P3 | Done | Markdown docs in docs/ |
 
 ## Test Coverage
 
