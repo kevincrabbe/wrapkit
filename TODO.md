@@ -8,7 +8,8 @@ wrapkit/
 │   ├── index.ts              # Main exports
 │   ├── wrap.ts               # Core wrap() function
 │   ├── types.ts              # TypeScript types
-│   ├── plugin.ts             # Plugin system
+│   ├── plugin.ts             # Plugin system & pipeline
+│   ├── state.ts              # Wrapper state management
 │   ├── glob.ts               # Glob pattern matching
 │   ├── rate-limiter.ts       # Rate limiting implementation
 │   ├── queue.ts              # Queue system
@@ -17,6 +18,7 @@ wrapkit/
 │   ├── access-control.test.ts # Allowlist/blocklist tests
 │   ├── rate-limit.test.ts    # Rate limiting tests
 │   ├── queue.test.ts         # Queue tests
+│   ├── plugin.test.ts        # Plugin system tests
 │   ├── openai.integration.test.ts  # OpenAI live API tests
 │   └── integration/          # Type preservation tests
 │       ├── openai.test-d.ts
@@ -54,7 +56,7 @@ wrapkit/
 | 7 | Queue system | P1 | Done | Priority queue, pause/resume/clear (9 tests) |
 | 8 | Event emitter | P1 | Done | queued, executing, completed, rateLimited, error |
 | 9 | `.withOptions()` implementation | P2 | Done | Priority override working, timeout pending |
-| 10 | Plugin system `.use()` | P2 | Pending | Fluent builder pattern |
+| 10 | Plugin system `.use()` | P2 | Done | Fluent builder, onion model (13 tests) |
 | 11 | Per-call timeout & skipQueue | P2 | Pending | Extend `.withOptions()` |
 | 12 | Export public API from index.ts | P2 | Pending | Clean exports |
 | 13 | Documentation site | P3 | Pending | Docusaurus or similar |
@@ -70,7 +72,8 @@ wrapkit/
 | access-control.test.ts | 13 | ✅ |
 | rate-limit.test.ts | 8 | ✅ |
 | queue.test.ts | 9 | ✅ |
-| **Subtotal** | **53** | ✅ |
+| plugin.test.ts | 13 | ✅ |
+| **Subtotal** | **66** | ✅ |
 
 ### Integration Tests
 
@@ -87,7 +90,7 @@ wrapkit/
 | integration/stripe.test-d.ts | ✅ | Type preservation verification |
 | integration/twilio.test-d.ts | ✅ | Type preservation verification |
 
-### Total: 56 runtime tests
+### Total: 69 runtime tests
 
 Integration test scenarios:
 - ✅ Type preservation (autocomplete works after wrapping)

@@ -181,6 +181,7 @@ export type WrappedClient<T> = T & {
     handler: (data: WrapkitEvents[E]) => void,
   ) => void;
   withOptions: (opts: PerCallOptions) => T;
+  use: <TContext>(plugin: Plugin<TContext>) => WrappedClient<T>;
   stats: WrapkitStats;
   queue: QueueControl;
 };

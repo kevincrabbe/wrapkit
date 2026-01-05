@@ -5,120 +5,29 @@
 import type {
   WrapConfig,
   WrappedClient,
-  WrapkitEvents,
-  WrapkitEventName,
-  WrapkitStats,
-  QueueControl,
   PerCallOptions,
+  Plugin,
+  PluginContext,
 } from './types';
+import {
+  runPluginsBefore,
+  runPluginsAfter,
+  runPluginsOnError,
+} from './plugin';
+import type { PluginExecution } from './plugin';
 import { checkAccess } from './glob';
+import { tryAcquire, decrementConcurrent } from './rate-limiter';
+import { enqueue, getRunningCount, getQueueSize } from './queue';
 import {
-  createRateLimiter,
-  tryAcquire,
-  decrementConcurrent,
-} from './rate-limiter';
-import type { RateLimiterState } from './rate-limiter';
-import {
-  createQueue,
-  enqueue,
-  pauseQueue,
-  resumeQueue,
-  clearQueue,
-  getQueueSize,
-  getRunningCount,
-} from './queue';
-import type { QueueState } from './queue';
+  createInitialState,
+  createOn,
+  createOff,
+  emitEvent,
+  updateStats,
+} from './state';
+import type { WrapperState } from './state';
 
-interface WrapperState {
-  stats: WrapkitStats;
-  queueControl: QueueControl;
-  queueState: QueueState | undefined;
-  listeners: Map<WrapkitEventName, Set<EventHandler>>;
-  config: WrapConfig | undefined;
-  rateLimiter: RateLimiterState | undefined;
-  latencies: number[];
-  perCallOptions: PerCallOptions | undefined;
-}
-
-type EventHandler = (data: unknown) => void;
 type AnyFunction = (...args: unknown[]) => unknown;
-
-function createInitialState(config: WrapConfig | undefined): WrapperState {
-  const rateLimiter = config?.rateLimit
-    ? createRateLimiter(config.rateLimit)
-    : undefined;
-
-  const queueState = config?.queue ? createQueue(config.queue) : undefined;
-
-  const state: WrapperState = {
-    stats: {
-      requestsPerMinute: 0,
-      averageLatency: 0,
-      errorRate: 0,
-      totalRequests: 0,
-    },
-    queueControl: {
-      size: 0,
-      pending: 0,
-      pause: () => undefined,
-      resume: () => undefined,
-      clear: () => undefined,
-    },
-    queueState,
-    listeners: new Map(),
-    config,
-    rateLimiter,
-    latencies: [],
-    perCallOptions: undefined,
-  };
-
-  if (queueState) {
-    state.queueControl = createQueueControl(state);
-  }
-
-  return state;
-}
-
-function createQueueControl(state: WrapperState): QueueControl {
-  return {
-    get size() {
-      return state.queueState ? getQueueSize(state.queueState) : 0;
-    },
-    get pending() {
-      return state.queueState ? getRunningCount(state.queueState) : 0;
-    },
-    pause: () => {
-      if (state.queueState) pauseQueue(state.queueState);
-    },
-    resume: () => {
-      if (state.queueState) resumeQueue(state.queueState);
-    },
-    clear: () => {
-      if (state.queueState) clearQueue(state.queueState);
-    },
-  };
-}
-
-function createOn(state: WrapperState) {
-  return <E extends WrapkitEventName>(
-    event: E,
-    handler: (data: WrapkitEvents[E]) => void,
-  ) => {
-    if (!state.listeners.has(event)) {
-      state.listeners.set(event, new Set());
-    }
-    state.listeners.get(event)?.add(handler as EventHandler);
-  };
-}
-
-function createOff(state: WrapperState) {
-  return <E extends WrapkitEventName>(
-    event: E,
-    handler: (data: WrapkitEvents[E]) => void,
-  ) => {
-    state.listeners.get(event)?.delete(handler as EventHandler);
-  };
-}
 
 function createWithOptions(state: WrapperState, client: object) {
   return function withOptions(opts: PerCallOptions): object {
@@ -128,17 +37,36 @@ function createWithOptions(state: WrapperState, client: object) {
   };
 }
 
+function createUse(state: WrapperState, client: object) {
+  return function use<TContext>(plugin: Plugin<TContext>): object {
+    const newState: WrapperState = {
+      ...state,
+      plugins: [...state.plugins, plugin as Plugin],
+    };
+    const ctx: ProxyContext = { state: newState, rootClient: client, path: '' };
+    return createDeepProxy(client, ctx);
+  };
+}
+
+type WrapperPropertyHandler = (state: WrapperState, client: object) => unknown;
+
+const wrapperPropertyHandlers: Record<string, WrapperPropertyHandler> = {
+  on: (state) => createOn(state),
+  off: (state) => createOff(state),
+  withOptions: (state, client) => createWithOptions(state, client),
+  use: (state, client) => createUse(state, client),
+  stats: (state) => state.stats,
+  queue: (state) => state.queueControl,
+};
+
 function handleWrapperProperty(
   prop: string | symbol,
   state: WrapperState,
   rootClient: object,
 ): unknown {
-  if (prop === 'on') return createOn(state);
-  if (prop === 'off') return createOff(state);
-  if (prop === 'withOptions') return createWithOptions(state, rootClient);
-  if (prop === 'stats') return state.stats;
-  if (prop === 'queue') return state.queueControl;
-  return undefined;
+  if (typeof prop !== 'string') return undefined;
+  const handler = wrapperPropertyHandlers[prop];
+  return handler?.(state, rootClient);
 }
 
 interface HookContext {
@@ -203,27 +131,6 @@ function checkMethodAccess(hookCtx: HookContext): void {
   }
 }
 
-function emitEvent<E extends WrapkitEventName>(
-  state: WrapperState,
-  event: E,
-  data: WrapkitEvents[E],
-): void {
-  const handlers = state.listeners.get(event);
-  if (handlers) {
-    for (const handler of handlers) {
-      handler(data);
-    }
-  }
-}
-
-function updateStats(state: WrapperState, latencyMs: number): void {
-  state.latencies.push(latencyMs);
-  state.stats.totalRequests += 1;
-
-  const sum = state.latencies.reduce((a, b) => a + b, 0);
-  state.stats.averageLatency = sum / state.latencies.length;
-}
-
 async function waitForRateLimit(hookCtx: HookContext): Promise<void> {
   const { state, methodPath } = hookCtx;
   if (!state.rateLimiter) return;
@@ -240,6 +147,47 @@ async function waitForRateLimit(hookCtx: HookContext): Promise<void> {
   }
 }
 
+interface ExecuteCoreParams {
+  fn: AnyFunction;
+  target: object;
+  args: unknown[];
+  hookCtx: HookContext;
+}
+
+async function runMethodWithPlugins(
+  params: ExecuteCoreParams,
+  pluginExecutions: PluginExecution[],
+): Promise<unknown> {
+  const { fn, target, args, hookCtx } = params;
+  const { state, methodPath } = hookCtx;
+  const hooks = state.config?.hooks;
+
+  const execCtx: ExecutionContext = { fn, target, args, methodPath };
+
+  try {
+    const result = await Promise.resolve(fn.apply(target, args));
+    const afterCtx: PluginContext = { method: methodPath, args, result };
+    await runPluginsAfter(pluginExecutions, afterCtx);
+    return await runAfterHook(hooks, methodPath, result);
+  } catch (error) {
+    if (error instanceof Error) {
+      const errorCtx: PluginContext = { method: methodPath, args };
+      await runPluginsOnError(pluginExecutions, errorCtx, error);
+    }
+    return handleError(hooks, execCtx, error);
+  }
+}
+
+function emitCompletion(state: WrapperState, methodPath: string, startTime: number): void {
+  const latencyMs = Date.now() - startTime;
+  updateStats(state, latencyMs);
+  emitEvent(state, 'completed', { method: methodPath, duration: latencyMs });
+
+  if (state.rateLimiter) {
+    decrementConcurrent(state.rateLimiter, methodPath);
+  }
+}
+
 async function executeCore(
   fn: AnyFunction,
   target: object,
@@ -248,42 +196,18 @@ async function executeCore(
 ): Promise<unknown> {
   const { state, methodPath } = hookCtx;
   const startTime = Date.now();
-
-  emitEvent(state, 'executing', {
-    method: methodPath,
-    concurrent: state.queueState ? getRunningCount(state.queueState) : 1,
-  });
+  const concurrent = state.queueState ? getRunningCount(state.queueState) : 1;
+  emitEvent(state, 'executing', { method: methodPath, concurrent });
 
   try {
     await waitForRateLimit(hookCtx);
-
-    const hooks = state.config?.hooks;
-    const finalArgs = await runBeforeHook(hooks, methodPath, args);
-    const execCtx: ExecutionContext = {
-      fn,
-      target,
-      args: finalArgs,
-      methodPath,
-    };
-
-    try {
-      const result = await Promise.resolve(fn.apply(target, finalArgs));
-      return await runAfterHook(hooks, methodPath, result);
-    } catch (error) {
-      return handleError(hooks, execCtx, error);
-    }
+    const finalArgs = await runBeforeHook(state.config?.hooks, methodPath, args);
+    const pluginCtx: PluginContext = { method: methodPath, args: finalArgs };
+    const pluginExecutions = await runPluginsBefore(state.plugins, pluginCtx);
+    const params: ExecuteCoreParams = { fn, target, args: finalArgs, hookCtx };
+    return await runMethodWithPlugins(params, pluginExecutions);
   } finally {
-    const latencyMs = Date.now() - startTime;
-    updateStats(state, latencyMs);
-
-    emitEvent(state, 'completed', {
-      method: methodPath,
-      duration: latencyMs,
-    });
-
-    if (state.rateLimiter) {
-      decrementConcurrent(state.rateLimiter, methodPath);
-    }
+    emitCompletion(state, methodPath, startTime);
   }
 }
 
