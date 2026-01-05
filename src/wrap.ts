@@ -188,6 +188,17 @@ function emitCompletion(state: WrapperState, methodPath: string, startTime: numb
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, methodPath: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Method '${methodPath}' timed out after ${String(timeoutMs)}ms`));
+      }, timeoutMs);
+    }),
+  ]);
+}
+
 async function executeCore(
   fn: AnyFunction,
   target: object,
@@ -205,7 +216,14 @@ async function executeCore(
     const pluginCtx: PluginContext = { method: methodPath, args: finalArgs };
     const pluginExecutions = await runPluginsBefore(state.plugins, pluginCtx);
     const params: ExecuteCoreParams = { fn, target, args: finalArgs, hookCtx };
-    return await runMethodWithPlugins(params, pluginExecutions);
+
+    const execution = runMethodWithPlugins(params, pluginExecutions);
+    const timeout = state.perCallOptions?.timeout;
+
+    if (timeout) {
+      return await withTimeout(execution, timeout, methodPath);
+    }
+    return await execution;
   } finally {
     emitCompletion(state, methodPath, startTime);
   }
@@ -220,15 +238,16 @@ async function executeWithHooks(
   checkMethodAccess(hookCtx);
 
   const { state, methodPath } = hookCtx;
-  const priority = state.perCallOptions?.priority ?? 'normal';
+  const { priority = 'normal', skipQueue = false } = state.perCallOptions ?? {};
+  const { queueState } = state;
 
-  if (state.queueState) {
+  if (queueState && !skipQueue) {
     emitEvent(state, 'queued', {
       method: methodPath,
-      queueSize: getQueueSize(state.queueState) + 1,
+      queueSize: getQueueSize(queueState) + 1,
     });
 
-    return enqueue(state.queueState, {
+    return enqueue(queueState, {
       methodPath,
       priority,
       execute: () => executeCore(fn, target, args, hookCtx),

@@ -55,9 +55,9 @@ wrapkit/
 | 6 | Rate limiting | P1 | Done | Token bucket, concurrency, per-method (8 tests) |
 | 7 | Queue system | P1 | Done | Priority queue, pause/resume/clear (9 tests) |
 | 8 | Event emitter | P1 | Done | queued, executing, completed, rateLimited, error |
-| 9 | `.withOptions()` implementation | P2 | Done | Priority override working, timeout pending |
+| 9 | `.withOptions()` implementation | P2 | Done | Priority, timeout, skipQueue (4 tests) |
 | 10 | Plugin system `.use()` | P2 | Done | Fluent builder, onion model (13 tests) |
-| 11 | Per-call timeout & skipQueue | P2 | Pending | Extend `.withOptions()` |
+| 11 | Per-call timeout & skipQueue | P2 | Done | Integrated into `.withOptions()` |
 | 12 | Export public API from index.ts | P2 | Pending | Clean exports |
 | 13 | Documentation site | P3 | Pending | Docusaurus or similar |
 
@@ -67,13 +67,13 @@ wrapkit/
 
 | File | Tests | Status |
 |------|-------|--------|
-| wrap.test.ts | 15 | ✅ |
+| wrap.test.ts | 19 | ✅ |
 | hooks.test.ts | 8 | ✅ |
 | access-control.test.ts | 13 | ✅ |
 | rate-limit.test.ts | 8 | ✅ |
 | queue.test.ts | 9 | ✅ |
 | plugin.test.ts | 13 | ✅ |
-| **Subtotal** | **66** | ✅ |
+| **Subtotal** | **70** | ✅ |
 
 ### Integration Tests
 
@@ -90,7 +90,7 @@ wrapkit/
 | integration/stripe.test-d.ts | ✅ | Type preservation verification |
 | integration/twilio.test-d.ts | ✅ | Type preservation verification |
 
-### Total: 69 runtime tests
+### Total: 73 runtime tests
 
 Integration test scenarios:
 - ✅ Type preservation (autocomplete works after wrapping)

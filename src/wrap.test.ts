@@ -174,4 +174,90 @@ describe('wrap()', () => {
       expect(typeof wrapped.queue.resume).toBe('function');
     });
   });
+
+  describe('withOptions()', () => {
+    it('should allow setting timeout per call', async () => {
+      const client = createMockClient();
+      client.chat.completions.create.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve({ id: 'slow' });
+            }, 100);
+          }),
+      );
+
+      const wrapped = wrap(client);
+
+      await expect(
+        wrapped.withOptions({ timeout: 10 }).chat.completions.create({}),
+      ).rejects.toThrow("Method 'chat.completions.create' timed out after 10ms");
+    });
+
+    it('should not timeout if request completes in time', async () => {
+      const client = createMockClient();
+      client.chat.completions.create.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve({ id: 'fast' });
+            }, 10);
+          }),
+      );
+
+      const wrapped = wrap(client);
+      const result = await wrapped.withOptions({ timeout: 100 }).chat.completions.create({});
+
+      expect(result).toEqual({ id: 'fast' });
+    });
+
+    it('should allow skipping the queue with skipQueue option', async () => {
+      const client = createMockClient();
+      const executionOrder: string[] = [];
+
+      client.chat.completions.create.mockImplementation(async () => {
+        executionOrder.push('executed');
+        return { id: 'result' };
+      });
+
+      const wrapped = wrap(client, {
+        queue: { concurrency: 1 },
+      });
+
+      // Pause the queue
+      wrapped.queue.pause();
+
+      // This should be queued and wait
+      const queuedPromise = wrapped.chat.completions.create({});
+
+      // This should skip the queue and execute immediately
+      const skippedPromise = wrapped
+        .withOptions({ skipQueue: true })
+        .chat.completions.create({});
+
+      // Wait a bit for the skipped call to execute
+      await skippedPromise;
+
+      expect(executionOrder).toEqual(['executed']);
+
+      // Resume and let queued call complete
+      wrapped.queue.resume();
+      await queuedPromise;
+
+      expect(executionOrder).toEqual(['executed', 'executed']);
+    });
+
+    it('should allow combining priority with other options', async () => {
+      const client = createMockClient();
+      const wrapped = wrap(client, {
+        queue: { concurrency: 1 },
+      });
+
+      const result = await wrapped
+        .withOptions({ priority: 'high', timeout: 5000 })
+        .chat.completions.create({});
+
+      expect(result).toEqual({ id: 'test-completion' });
+    });
+  });
 });
