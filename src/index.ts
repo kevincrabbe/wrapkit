@@ -1,31 +1,49 @@
 /**
  * Wrapkit - Type-safe wrapper for API clients
  *
- * Features:
- * - Before/after hooks for function calls
- * - Rate limiting
- * - Queueing with priority
- * - Allowlist/blocklist for operations
- * - Full type safety (preserving wrapped client types)
+ * @example
+ * ```typescript
+ * import { wrap, definePlugin } from 'wrapkit';
+ *
+ * const client = wrap(openai, {
+ *   rateLimit: { requestsPerSecond: 10 },
+ *   queue: { concurrency: 5 },
+ * });
+ *
+ * // Use plugins
+ * const wrapped = client.use(loggingPlugin).use(metricsPlugin);
+ *
+ * // Per-call options
+ * await wrapped.withOptions({ timeout: 5000 }).chat.completions.create({});
+ * ```
  */
 
+// Core functions
 export { wrap } from './wrap';
 export { definePlugin } from './plugin';
 
-// Types
+// Configuration types
 export type {
   WrapConfig,
   WrapHooks,
+  BeforeHook,
+  AfterHook,
+  ErrorHook,
+  RetryHelper,
   RateLimitConfig,
+  PerMethodRateLimitConfig,
   QueueConfig,
-  WrappedClient,
-  Plugin,
   PerCallOptions,
-  WrapkitEvents,
-  WrapkitStats,
 } from './types';
 
-// Built-in plugins will be exported here once implemented
-// export { rateLimit } from './plugins/rate-limit';
-// export { retry } from './plugins/retry';
-// export { queue } from './plugins/queue';
+// Plugin types
+export type { Plugin, PluginContext } from './types';
+
+// Wrapped client types
+export type {
+  WrappedClient,
+  WrapkitEvents,
+  WrapkitEventName,
+  WrapkitStats,
+  QueueControl,
+} from './types';

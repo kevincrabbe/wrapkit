@@ -58,7 +58,7 @@ wrapkit/
 | 9 | `.withOptions()` implementation | P2 | Done | Priority, timeout, skipQueue (4 tests) |
 | 10 | Plugin system `.use()` | P2 | Done | Fluent builder, onion model (13 tests) |
 | 11 | Per-call timeout & skipQueue | P2 | Done | Integrated into `.withOptions()` |
-| 12 | Export public API from index.ts | P2 | Pending | Clean exports |
+| 12 | Export public API from index.ts | P2 | Done | All types + functions exported |
 | 13 | Documentation site | P3 | Pending | Docusaurus or similar |
 
 ## Test Coverage
